@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>geo test</title>
+<script>voyc = {}</script>
+<script src='geolib.js'></script>
+<script src='projection.js'></script>
+<script src='../jslib/utils.js'></script>
+<script>
+window.addEventListener('load', function() {test()}, false)
+function test() {
+	var coNY = [ -74.00594, -40.71278]
+	var coLA = [-118.24368, -34.05223]
+	var nyla  = voyc.distanceKm(coNY, coLA)
+	console.log([nyla,'3944 km'])
+	
+	var nylad3  = voyc.distanced3(coNY, coLA) * voyc.radiusKm
+	console.log([nylad3,'3944 km'])
+	
+	var coLondon = [0, 51.5]
+	var coArlington = [-77.1, 38.8]
+	var londonarlington = voyc.distanceKm(coLondon, coArlington)
+	console.log([londonarlington, '5918 km'])
+	
+	var coZero = [0,0]
+	var zero = voyc.distanceKm(coZero,coZero)
+	console.log([zero, '0 km'])
+	
+	var w = window.innerWidth
+	var h = window.innerHeight
+	var co = [0,0]
+	var gamma = 0
+
+	var proj = new voyc.Projection()
+	proj.wd = window.innerWidth
+	proj.ht = window.innerHeight
+	proj.setMix( voyc.orthographic)
+	proj.rotate([0-co[0], 0-co[1], 0-gamma])  // rotate to null island
+	proj.translate([w/2, h/2])                // position the circle within the canvas (centered) in pixels
+	proj.scale(0)                             // zoom level 0
+	
+	console.log(coNY)
+	var ptNY = proj.project(coNY)
+	console.log(ptNY)
+	var coNY2 = proj.invert(ptNY)
+	console.log(coNY2)
+
+	for (var zoom=-2; zoom<23; zoom++)
+		console.log(zoom, voyc.scaler(256,zoom), voyc.scaler(393,zoom), voyc.scaler(984,zoom))
+	
+	var pt = [70,70]
+	var co = proj.project(pt)
+	var ps = proj.invert(co)
+	console.log([pt,co,ps])
+
+	var t = '5726498379'.split('')
+	var x = parseFloat(t.join(''))
+	var o
+	while (x > .1) {
+		o = voyc.scaleGraph(x)
+		console.log(`${x} ${o.n} ${o.unit} ${o.cm} ${o.pxl}`)
+		t.shift(1)
+		x = parseFloat(t.join(''))
+	}
+
+	var ht = 8
+	var wd = 40	
+	var cvs = document.getElementById('scalegraph')
+	cvs.width = wd
+	cvs.height = ht
+	var ctx = cvs.getContext('2d')
+	drawScaleGraph(ctx,40,8)
+}
+
+drawScaleGraph = function(ctx,wd,ht) {
+	ctx.moveTo(0,0)
+	ctx.lineTo(0,ht)
+	ctx.lineTo(wd,ht)
+	ctx.lineTo(wd,0)
+	ctx.lineWidth = 3
+	ctx.stroke()
+}
+
+</script>
+</head>
+<body>
+<div>see console log</div>
+<div>4000 km <canvas id='scalegraph'></canvas></div>
+</body>
+</html>

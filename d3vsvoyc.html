@@ -1,0 +1,401 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>geo vs d3</title>
+<style>
+body {
+	margin:0;
+	xoverflow:hidden;
+}
+div {
+	width:100vw;
+	height:49vh;
+}
+</style>
+<script>/**const*/var voyc = {};</script>
+<script src='geo.js'></script>
+<script src='geoiterator.js'></script>
+<script src='dualprojection.js'></script>
+<script src='../jslib/utils.js'></script>
+<script src="../topojson/topojson.min.js"></script>
+<script src="../data/worldtopo.js"></script>
+
+<script src="../../../../lab/globe/d3/d3.js"></script>
+<script>
+voyc.Empire = {};
+voyc.Empire.colors = ['#f00', '#0f0', '#00f', '#ff0', '#0ff', '#f0f'];
+
+// globals
+var log = false;
+var w = 0;
+var h = 0;
+var scale = 0;
+var λ = 0;  // lambda = yaw = negative longitude = spin on the x axis
+var φ = 0;  // phi    = pitch = negative latitude = spin on the y axis
+var γ = 0;  // gamma  = roll = spin on the z axis
+
+// for voyc test
+var iterator = {};
+var iterateeLand = {};
+var iterateeEmpire = {};
+var iterateeGrid = {};
+var iterateeHitTest = {};
+
+// testdata: geojson objects
+
+var point = {
+	type:'Point',
+	coordinates:[100,30]
+}
+
+var multipoint = {
+	type:'MultiPoint',
+	coordinates:[[100,0],[-100,0],[30,0]]
+}
+
+var line = {
+	type:'LineString',
+	coordinates:[[130,20],[80,-30]]
+}
+
+var line2 = {
+	type:'LineString',
+	coordinates:[[-40,30],[10,30]],
+}
+
+var line3 = {
+	type:'LineString',
+	coordinates:[[-40,0],[10,0]],
+}
+
+var line4 = {
+	type:'LineString',
+	coordinates:[[-40,25],[-30,25],[-20,25],[-10,25],[0,25],[10,25]],
+}
+
+var line5 = {
+	type:'LineString',
+	coordinates:[[30,40],[120,40]],
+}
+
+var line6 = {
+	type:'LineString',
+	coordinates:[[60,-60],[60,40]],
+}
+
+var polygon = {
+	type: 'Polygon', 
+	coordinates: [[[75, 20], [75, 30], [85, 30], [85, 20], [75, 20]]]
+};
+
+var collectionEmpire = {
+	type: 'GeometryCollection',
+	geometries: [
+		{
+			type: "MultiPolygon", 
+			coordinates: [[[[55, 20], [55, 30], [65, 30], [65, 20], [55, 20]]]],
+			id:3,
+			name:'antoine',
+			c:5,
+			b:100,
+			e:500,
+			q:true,
+			v:true,
+		},
+		{
+			type: 'Polygon',
+			coordinates: [[[-40, 40], [-40, 50], [10, 50], [10, 40], [-40, 40]]],
+			id:3,
+			name:'ida',
+			c:4,
+			b:100,
+			e:500,
+			q:true,
+			v:true,
+		},
+		{
+			type: 'Polygon',
+			coordinates: [[[-100, -50], [-100, -40], [-70, -40], [-70, -50], [-100, -50]]],
+			id:3,
+			name:'idasouth',
+			c:4,
+			b:100,
+			e:500,
+			q:true,
+			v:true,
+		},
+	]
+};
+
+var collectionGrid = {
+	type: 'GeometryCollection',
+	geometries: [
+		{
+			type: "MultiLine", 
+			coordinates: voyc.Geo.graticule(),
+		}
+	]
+}
+
+setup = function() {
+	// initials globals for projections
+	var elemvoyc = document.getElementById('voyc');
+	w = elemvoyc.offsetWidth;
+	h = elemvoyc.offsetHeight;
+	scale = Math.min(w,h) / 2;
+	λ = -80;  // lambda = yaw = negative longitude = spin on the x axis
+	φ = -20;  // phi    = pitch = negative latitude = spin on the y axis
+	γ = 0;    // gamma  = roll = spin on the z axis
+
+	land = topojson.object(worldtopo, worldtopo.objects.land);
+	countries = topojson.object(worldtopo, worldtopo.objects.countries);
+
+	landvoyc = {
+		type:'GeometryCollection',
+		geometries:[land]
+	};
+
+	setupd3();
+	setupvoyc();
+	
+	draw();
+	compare();
+}
+
+// compare functions: distance and interpolate
+compare = function() {
+	var co1 = [80,20];
+	var co2 = [90,30];
+	var co3 = [-123,-79];
+	var t = .23;
+
+	voyc.geo = new voyc.Geo();
+	var dist1voyc = voyc.geo.distance(co1,co2);
+	var dist1d3 = d3.geo.distance(co1,co2);
+	var dist2voyc = voyc.geo.distance(co1,co3);
+	var dist2d3 = d3.geo.distance(co1,co3);
+	console.log('distance1: ' + dist1voyc + ' ' + dist1d3);
+	console.log('distance2: ' + dist2voyc + ' ' + dist2d3);
+
+	var int1voyc = voyc.geo.interpolate(co1,co2,t);
+	var int1d3 = d3.geo.interpolate(co1,co2)(t);
+	var int2voyc = voyc.geo.interpolate(co1,co3,t);
+	var int2d3 = d3.geo.interpolate(co1,co3)(t);
+	console.log('interpolate1: ' + int1voyc + ' ' + int1d3);
+	console.log('interpolate2: ' + int2voyc + ' ' + int2d3);
+}
+
+setupd3 = function() {
+	orthod3 = d3.geo.orthographic();  // calls d3_geo_resample
+	orthod3.translate([w/2, h/2]);
+	orthod3.clipAngle(90);
+
+	canvasd3 = document.createElement('canvas');
+	canvasd3.id = 'canvasd3';
+	canvasd3.width  = w;
+	canvasd3.height = h;
+	canvasd3.style.width =  w + 'px';
+	canvasd3.style.height = h + 'px';
+	var e = document.getElementById('d3');
+	e.appendChild(canvasd3);
+	ctxd3 = canvasd3.getContext("2d");
+
+	pathd3 = d3.geo.path();  // calls d3_geo_resample three times, then calls resample three times
+	pathd3.projection(orthod3);
+
+	sphered3 = {type: "Sphere"};
+	graticuled3 = d3.geo.graticule();
+}
+
+setupvoyc = function() {
+	orthovoyc = new voyc.OrthographicProjection();
+	orthovoyc.translate([w/2, h/2]);
+
+	canvasvoyc = document.createElement('canvas');
+	canvasvoyc.id = 'canvasvoyc';
+	canvasvoyc.width  = w;
+	canvasvoyc.height = h;
+	canvasvoyc.style.width =  w + 'px';
+	canvasvoyc.style.height = h + 'px';
+	var e = document.getElementById('voyc');
+	e.appendChild(canvasvoyc);
+
+	ctxvoyc = canvasvoyc.getContext("2d");
+
+	// setup interator objects
+	iterator = new voyc.GeoIterate();
+	
+	iterateeLand = voyc.clone(voyc.GeoIterate.iterateePolygonClipping);
+	iterateeLand.projection = orthovoyc;
+	iterateeLand.ctx = ctxvoyc;
+
+	iterateeEmpire = voyc.clone(voyc.GeoIterate.iterateePolygonClipping);
+	voyc.merge(iterateeEmpire, voyc.GeoIterate.iterateeDrawPerGeometry);
+	iterateeEmpire.projection = orthovoyc;
+	iterateeEmpire.ctx = ctxvoyc;
+	iterateeEmpire.colorstack = voyc.Empire.colors;
+
+	iterateeGrid = voyc.clone(voyc.GeoIterate.iterateeLine);
+	iterateeGrid.projection = orthovoyc;
+	iterateeGrid.ctx = ctxvoyc;
+
+	iterateeHitTest = voyc.clone(voyc.GeoIterate.iterateeHitTest);
+	iterateeHitTest.projection = orthovoyc;
+	
+	// onetime data analysis
+	iterator.iterateCollection(landvoyc, voyc.GeoIterate.iterateeCounter);
+	iterator.iterateCollection(countries, voyc.GeoIterate.iterateeCounter);
+}
+
+draw = function() {
+	drawd3();
+	drawvoyc();
+}
+
+drawd3 = function() {
+	var tmbegind3 = new Date();
+	orthod3.rotate([λ,φ,γ]);
+	orthod3.scale(scale);
+
+	// clear
+	ctxd3.clearRect(0, 0, w, h);
+
+	// sphere
+	ctxd3.fillStyle = '#88f';
+	ctxd3.beginPath();
+	pathd3.context(ctxd3)(sphered3);
+	ctxd3.fill();
+
+	// land
+	ctxd3.fillStyle = '#0f0';
+	ctxd3.beginPath();
+	pathd3.context(ctxd3)(land);
+	ctxd3.fill();
+
+	// graticule
+	ctxd3.strokeStyle = '#888';
+	ctxd3.strokeWidth = .5;
+	ctxd3.strokeOpacity = .5;
+	ctxd3.beginPath();
+	pathd3.context(ctxd3)(graticuled3());
+	ctxd3.stroke();
+
+	// features
+//	ctxd3.strokeStyle = '#f00';
+//	ctxd3.strokeWidth = 1;
+//	ctxd3.strokeOpacity = 1;
+//	ctxd3.fillStyle = '#f00';
+
+//	ctxd3.beginPath();
+//	pathd3.context(ctxd3)(point);
+//	ctxd3.fill();
+//
+//	ctxd3.beginPath();
+//	pathd3.context(ctxd3)(multipoint);
+//	ctxd3.fill();
+
+//	ctxd3.beginPath();
+//	pathd3.context(ctxPointilist)(line);
+//	pathd3.context(ctxPointilist)(line2);
+//	pathd3.context(ctxPointilist)(line3);
+//	pathd3.context(ctxPointilist)(line4);
+
+//	pathd3.context(ctxPointilist)(line5);
+//	var pduh = pathd3.context(ctxPointilist);
+//	pduh(line5);
+//	console.log(pduh === pathd3);
+
+//	pathd3.context(ctxPointilist)(line6);
+//	ctxd3.stroke();
+
+//	ctxd3.beginPath();
+//	pathd3.context(ctxd3)(polygon);
+//	ctxd3.fill();
+//
+	// empire collection
+	ctxd3.strokeStyle = '#ff0';
+	ctxd3.fillStyle = '#ff0';
+	ctxd3.beginPath();
+	pathd3.context(ctxd3)(collectionEmpire);
+	ctxd3.fill();
+
+	var tmendd3 = new Date();
+	var elapsedd3 = tmendd3.getTime() - tmbegind3.getTime();
+	log&&console.log('d3 draw time: ' + elapsedd3);
+}
+
+drawvoyc = function() {
+	var tmbeginvoyc = new Date();
+	orthovoyc.rotate([λ,φ,γ]);
+	orthovoyc.scale(scale);
+
+	// clear
+	ctxvoyc.clearRect(0, 0, w, h);
+
+	// sphere
+	ctxvoyc.fillStyle = '#88f';
+	ctxvoyc.beginPath();
+	ctxvoyc.arc(w/2,h/2,scale,0*Math.PI,2*Math.PI);
+	ctxvoyc.fill();
+
+	ctxvoyc.fillStyle = '#0f0';
+	ctxvoyc.beginPath();
+	iterator.iterateCollection(landvoyc, iterateeLand);
+	ctxvoyc.fill();
+
+	ctxvoyc.strokeOpacity = .5;
+	iterator.iterateCollection(collectionEmpire, iterateeEmpire);
+
+	// grid
+	iterator.iterateCollection(collectionGrid, iterateeGrid);
+
+	var tmendvoyc = new Date();
+	var elapsedvoyc = tmendvoyc.getTime() - tmbeginvoyc.getTime();
+	log&&console.log('voyc draw time: ' + elapsedvoyc);
+}
+
+window.addEventListener('load', function() {
+	setup();
+}, false);
+window.addEventListener('resize', function() {
+	e = document.getElementById('voyc');
+	e.removeChild(canvasvoyc);
+	setup();
+}, false);
+window.addEventListener('click', function(evt) {
+	console.log('start hittest');
+	iterateeHitTest.targetPoint = [evt.offsetX, evt.offsetY];
+	iterator.iterateCollection(collectionEmpire, iterateeHitTest);
+}, false);
+
+window.addEventListener('keydown', function(evt) {
+	if (event.shiftKey) {
+		switch (evt.keyCode) {
+			case 39: γ -= 5; break;  // shift left/right spin around z axis
+			case 37: γ += 5; break;
+			case 38: scale += 10; break;  // shift up/down zoom in/out
+			case 40: scale -= 10; break;
+			default: return;
+		}
+	}
+	else {
+		switch (evt.keyCode) {
+			case 39: λ += 5; break;  // left/right spin horizontally on y axis
+			case 37: λ -= 5; break;
+			case 38: φ += 5; break;  // up/down spin vertically on x axis
+			case 40: φ -= 5; break;
+			default: return;
+		}
+	}
+	evt.preventDefault();
+	draw();
+}, false);
+
+</script>
+</head>
+<body>
+<div id='voyc'></div>
+<div id='d3'></div>
+</body>
+</html>

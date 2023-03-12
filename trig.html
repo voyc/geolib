@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>trig test</title>
+<style>
+iframe {
+	position:fixed;
+	left:0;
+	top:0;
+	width:calc(100% - 23rem);
+	height:100%;
+	resize:both;
+}
+div {
+	position:fixed;
+	right:0;
+	top:0;
+	width:22rem;
+	padding:.5rem;
+}
+</style>
+<script>voyc = {}</script>
+<script src='trig.js'></script>
+<script src='../jslib/utils.js'></script>
+<script>
+function writeln(a) {
+	var s = document.getElementById('output').innerHTML	
+	for (var i=0; i<a.length; i++)
+		s += a[i] += ', '
+	s += '<br\>'
+	document.getElementById('output').innerHTML = s
+}
+
+window.addEventListener('load', function(evt) {
+	writeln([])
+
+	var A = [1,11]
+	var B = [21,1]
+	var E = [19,12]
+	var F = [28,2]    // outside to the right
+	var G = [-3,7]    // outside to the left 
+	
+	writeln(['line AB given two points A and B'])
+	writeln(['slope', voyc.slope(A,B)])
+	writeln(['length', voyc.length(A,B)])
+	
+	var line = voyc.lineGivenTwoPoints(A,B)
+	var a=line[0], b=line[1], c=line[2], m=line[3], i=line[4]
+	writeln(['equation a,b,c,m,i', a, b, c, m, i])
+	writeln([voyc.prepString('equation normal: $1x + $2b + c = 0', [a,b,c])])
+	writeln([voyc.prepString('equation slope-intercept: y = $1x + $2', [m,i])])
+	
+	var x = 10
+	writeln(['y given x=10 using normal form', voyc.yNormalForm(x,a,b,c)])
+	writeln(['y given x=10 using slope-intercept', voyc.ySlopeIntercept(x,m,i)])
+	writeln([])
+	
+	
+	writeln(['find line ED'])
+	var mp = voyc.slopePerpendicular(m)
+	writeln(['slope of line ED, perpendicular to AB', mp])
+	
+	var line = voyc.lineGivenSlopeAndOnePoint(mp,E)
+	var a=line[0], b=line[1], c=line[2], m=line[3], i=line[4]
+	writeln(['equation a,b,c,m,i', a, b, c, m, i])
+	writeln([voyc.prepString('equation normal: $1x + $2b + c = 0', [a,b,c])])
+	writeln([voyc.prepString('equation slope-intercept: y = $1x + $2', [m,i])])
+
+	writeln([''])
+	var D = voyc.intersection(A,B,E)
+	writeln(['D on AB, ED perp to AB', D[0], D[1], '15,4'])
+	var H = voyc.intersection(A,B,F)
+	writeln(['H ditto', H[0], H[1], '26.2,-1.6'])
+	var I = voyc.intersection(A,B,G)
+	writeln(['I ditto', I[0], I[1], '-.6,11.8'])
+	
+	var isInside = voyc.pointInRect(D,A,B)     // is D between A and B?  yes
+	writeln(['D is inside', isInside, true]);
+	var isInside = voyc.pointInRect(F,A,B)     // is F between A and B?  No
+	writeln(['F is inside', isInside, false]);
+	var isInside = voyc.pointInRect(G,A,B)     // is G between A and B?  No
+	writeln(['G is inside', isInside, false]);
+	
+	writeln([''])
+	writeln(['pointToLine E', voyc.distancePointToLine(E,A,B), 8.94])
+	writeln(['pointToLine F', voyc.distancePointToLine(F,A,B), 4.02])
+	writeln(['pointToLine G', voyc.distancePointToLine(G,A,B), 5.37])
+	writeln([''])
+	writeln(['pointToLineSeg E', voyc.distancePointToLineSeg(E,A,B), 8.94])
+	writeln(['pointToLineSeg F', voyc.distancePointToLineSeg(F,A,B), 7.07])
+	writeln(['pointToLineSeg G', voyc.distancePointToLineSeg(G,A,B), 5.66])
+}, false)
+
+</script>
+</head>
+<body>
+<iframe src='https://www.geogebra.org/classic/wasspxzz' title='geogebra' allowfullscreen='true'></iframe>
+<div id=output>
+var A = [1,11]<br/>
+var B = [21,1]<br/>
+var E = [19,12]<br/>
+var F = [28,2]    // outside to the right<br/>
+var G = [-3,7]    // outside to the left <br/>
+</div>
+</body>
+</html>
